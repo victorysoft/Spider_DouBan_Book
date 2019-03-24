@@ -17,6 +17,7 @@ import java.util.List;
  * @date: 3/10/19 09:47
  */
 public class XmlUtil {
+	//用sax解析xml文档    注：也可以使用dom来解析xml文档
     public static JSONObject xml2JSON(byte[] xml) throws JDOMException, IOException {
         JSONObject json = new JSONObject();
         InputStream is = new ByteArrayInputStream(xml);

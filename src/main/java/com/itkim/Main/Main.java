@@ -7,11 +7,14 @@ import com.itkim.pojo.Comment;
 import com.itkim.tools.DBTools;
 import com.itkim.tools.HttpClient;
 import com.vdurmont.emoji.EmojiParser;
+
 import org.apache.ibatis.session.SqlSession;
 import org.dom4j.DocumentException;
 import org.dom4j.Element;
 import org.dom4j.io.SAXReader;
 import org.jdom2.JDOMException;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
@@ -34,6 +37,7 @@ import java.util.concurrent.Executors;
 public class Main {
 
     private static SqlSession session = DBTools.getSession();
+    //mybatis面向接口的编程  可以不用实现接口BookMapper
     private static BookMapper mapper = session.getMapper(BookMapper.class);
     private static CommentMapper mapper2 = session.getMapper(CommentMapper.class);
     //创建任务队列，可以根据你JVM堆内存大小，修改这里的容量。
@@ -42,17 +46,18 @@ public class Main {
     /**
      * 根据标签页去爬取书的id和名字
      *
-     * @param url https://book.douban.com/tag/%E5%8E%86%E5%8F%B2?start=20&type=T
+     * @param url https://book.douban.com/tag/%E5%8E%86%E5%8F%B2?start=0&type=T
      * @throws IOException
      */
-    public static void sclawByIndex(String url) throws IOException {
+    public static void sclawByIndex(String url) throws IOException { 
         Document document = Jsoup.parse(HttpClient.get(url));
         Elements elements = document.select("#subject_list > ul > li");
+        System.out.println(elements.toString());
+        //抽取每个页面  书的id和名字
         for (int i = 1; i <= elements.size(); i++) {
             Book book = new Book();
             book.setId(Integer.parseInt(elements.select("li:nth-child(" + i + ") > div.info > h2 > a").attr("href").toString().replace("https://book.douban.com/subject/", "").replace("/", "")));
             book.setBookName(elements.select("li:nth-child(" + i + ") > div.info > h2 > a").attr("title"));
-            System.out.println(book);
             mapper.insert(book);
             session.commit();
         }
@@ -68,7 +73,6 @@ public class Main {
         Document document = Jsoup.parse(HttpClient.get(url));
         //书的id
         int bookId = Integer.parseInt(url.replace("https://book.douban.com/subject/", "").replace("/", ""));
-
 
         Book book = new Book();
 
@@ -87,16 +91,12 @@ public class Main {
         }
         book.setCurrentPrice(currentPrice);
         book.setId(bookId);
-        System.out.println(book.toString());
         mapper.updateByPrimaryKeySelective(book);
         session.commit();
 
-
-//#comments > ul > li:nth-child(1) > div > h3 > span.comment-info > a
-
         //爬取评论
         Elements elements = document.select("#comments:nth-child(1) > ul > li");
-//            System.out.println(elements.text());
+        
         for (int i = 1; i <= elements.size(); i++) {
             Comment comment1 = new Comment();
             //用户名
@@ -105,7 +105,6 @@ public class Main {
             comment1.setUsername(username2);
 
             //评分
-//                #comments > ul > li:nth-child(1) > div > h3 > span.comment-info > span.user-stars.allstar40.rating
             String score = elements.select("li:nth-child(" + i + ") > div > h3 > span.comment-info > span.user-stars.allstar50.rating").attr("title");
             if (score.isEmpty()) {
                 score = elements.select("li:nth-child(" + i + ") > div > h3 > span.comment-info > span.user-stars.allstar40.rating").attr("title");
@@ -137,7 +136,6 @@ public class Main {
             comment1.setApproval(approval);
             comment1.setComment(comment2);
             comment1.setTime(time);
-            System.out.println(comment1.toString());
             mapper2.insertSelective(comment1);
             session.commit();
         }
@@ -147,8 +145,18 @@ public class Main {
 
     /**
      * 根据url去api中爬数据，解析其中xml文档
-     *
      * @param url http://api.douban.com/book/subject/4123377
+     * 
+     * 问：为什么sclawByIndex()方法是用jsoup解析，而sclawByDetail()采用解析xml方式爬取数据
+     * 答：
+     * 路径=> https://book.douban.com/tag/%E5%8E%86%E5%8F%B2?start=0&type=T 页面比较规范 ，可以用jsoup来解析爬取书的id和名字 但是
+     *    具体到某个书的页面 如： https://book.douban.com/subject/26953606/，页面之间存在差异，用jsoup解析数据容易出错
+     *    
+     * 路径=> http://api.douban.com/book/subject/4123377 为豆瓣的开发者接口，数据格式规范，所以采用解析xml方法爬取数据，而且IP不易被封。
+     *    但是2019-03-22验证时，此api借口被豆瓣封掉，具体开放时间不详。 可参考https://www.douban.com/group/345245/网址了解具体情况。
+     * 
+     * 对于封掉API借口问题，可以爬取另一个页面  https://douban.uieee.com/v2/book/4123377 返回json数据，可以自己解析
+     * 
      */
     public static void sclawByAPI(String url) throws IOException, JDOMException, DocumentException {
         String xml = HttpClient.get(url).replace("This XML file does not appear to have any style information associated with it. The document tree is shown below.", "");
@@ -187,7 +195,6 @@ public class Main {
             //书的ISBM13
             if (element.attributeValue("name").equals("isbn13")) {
                 book.setIsbn(element.getText());
-                System.out.println("1111111111");
             }
 
             //页数
@@ -252,53 +259,133 @@ public class Main {
             book.setNumberOfPeople(Integer.parseInt(element.attributeValue("numRaters")));
         }
 
-
         mapper.updateByPrimaryKey(book);
         session.commit();
-        System.out.println("完成一条");
 
 
     }
 
+    /**
+     * 解决豆瓣API被封问题   爬取豆瓣另一个网址
+     *
+     * @param url https://douban.uieee.com/v2/book/4123377
+     * 
+     * url https://douban.uieee.com/v2/book/4123377 返回json数据
+     * @throws IOException 
+     * 
+     */
+    public static void sclawByAPIJson(String url) throws IOException{
+    	String doc = HttpClient.get(url);
+    	JSONObject jsonObject = new JSONObject(doc);
+    	
+    	//作者
+    	String author = "";	
+    	JSONArray authorList = jsonObject.getJSONArray("author");
+    	author =  (String) authorList.get(0);
+        if(authorList.length() > 1){
+        	for(int i = 1;i < authorList.length();i++){
+        		author = author + "," + authorList.get(i);
+        	} 	
+        }
+        System.out.println(author);
+        
+        //出版日期
+        String pubdate = jsonObject.getString("pubdate");
+        System.out.println(pubdate);
+        
+        //标签
+        String tagCountName = "";
+        JSONArray tagList = jsonObject.getJSONArray("tags");
+    	for(int i = 0;i < tagList.length();i++){
+        	JSONObject tagObject = tagList.getJSONObject(i); 
+        	//int tagCount = tagObject.getInt("count");
+        	tagCountName = tagCountName + tagObject.getString("name") + ",";
+        }
+    	System.out.println(tagCountName);
+    	
+    	//目录
+    	String catalog = jsonObject.getString("catalog");
+    	if(catalog.length() > 1000){
+    		catalog = catalog.substring(0,1000);
+    	}
+    	System.out.println(catalog);
+    	
+    	//图书页数
+    	int pages = jsonObject.getInt("pages");
+    	System.out.println(pages);
+    	
+        //图书封面图片url 分为三种图片 大 中 小
+    	JSONObject imageUrlObject = jsonObject.getJSONObject("images");    	
+		String largeImageUrl = imageUrlObject.getString("large");
+		String mediumImageUrl = imageUrlObject.getString("medium");
+		String smallImageUrl = imageUrlObject.getString("small");
+		
+		System.out.println(largeImageUrl);
+		System.out.println(mediumImageUrl);
+		System.out.println(smallImageUrl);
+		
+		//图书id
+		int bookID = jsonObject.getInt("id");		
+		System.out.println(bookID);
+		
+		//出版单位
+		String publisher = jsonObject.getString("publisher");
+		System.out.println(publisher);
+		
+		//ISBN10
+		String isbn10 = jsonObject.getString("isbn10");
+		System.out.println(isbn10);
+		
+		//ISBN13
+		String isbn13 = jsonObject.getString("isbn13");
+		System.out.println(isbn13);
+		
+		//书名
+		String title = jsonObject.getString("title");
+		System.out.println(title);
+		
+		//API接口URL地址
+		String apiUrl = jsonObject.getString("url");
+		System.out.println(apiUrl);
+		
+		//作者简介
+		String author_intro = jsonObject.getString("author_intro");
+		System.out.println(author_intro);
+		
+		//简介
+		String summary = jsonObject.getString("summary").replace("\n", "").replace(" ", "");
+		System.out.println(summary);
+		
+		//价格
+		String price = jsonObject.getString("price");
+		System.out.println(price); 	
+    }
 
+    /**
+     *   爬取主函数
+     */
     public static void main(String[] args) throws Exception {
-
-//        for (int i = 1; i <= 74; i++) {
-//            sclaw("https://book.douban.com/tag/%E5%8E%86%E5%8F%B2?start=" + i * 20+ "&type=T");
-//            System.out.println(i);
-//            Thread.sleep(1000);
-//        }
-
-//        sclawByAPI("http://api.douban.com/book/subject/26953606");
-
-
-
-//        List<Book> list = mapper.selectByExample(null);
-//        LinkedList<String> list1 = new LinkedList();
-//        for (int i = 0; i < list.size(); i++) {
-//            int bookId = list.get(i).getId();
-//            list1.add("http://api.douban.com/book/subject/" + bookId);
-//        }
-//
-//        for (int i = 346; i < 1314; i++) {
-//            sclawByAPI(list1.get(i));
-//            System.out.println("当前--->" + (i+1));
-//        }
-
-
-        List<Book> list = mapper.selectByExample(null);
+    	
+    	sclawByAPIJson("https://douban.uieee.com/v2/book/30191803");
+    	
+    	/*for (int pageStart = 0;pageStart <= 0;pageStart = pageStart+20 ){
+	       String url = "https://book.douban.com/tag/%E5%8E%86%E5%8F%B2?start=" + pageStart + "&type=T";
+    	   sclawByIndex(url);
+    	}*/
+    	
+    	
+    /*
+    	List<Book> list = mapper.selectByExample(null);
         for (int i = 0; i < list.size(); i++) {
             int bookId = list.get(i).getId();
             //将url添加到队列中
-            bq.add("https://book.douban.com/subject/" + bookId + "/");
+            bq.offer("https://book.douban.com/subject/" + bookId + "/");
         }
-        System.out.println("添加完成");
 
         //创建线程池
-        ExecutorService fixedThreadPool = Executors.newFixedThreadPool(8);
+        final ExecutorService fixedThreadPool = Executors.newFixedThreadPool(8);
         while (!bq.isEmpty() ) {
             fixedThreadPool.execute(new Runnable() {
-                @Override
                 public void run() {
                     try {
                         sclawByDetail(bq.poll());
@@ -310,5 +397,6 @@ public class Main {
             });
         }
         fixedThreadPool.shutdown();
+        */
     }
 }
