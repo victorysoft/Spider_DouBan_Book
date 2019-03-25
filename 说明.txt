@@ -1,0 +1,52 @@
+<!-- 记录修改过程 -->
+
+1.Main类中sclawByDetail方法，根据豆瓣API去爬取数据，但是关闭了
+          API路径 http://api.douban.com/book/subject/4123377
+	
+	           问：为什么sclawByIndex()方法是用jsoup解析，而sclawByDetail()采用解析xml方式爬取数据
+	           答： 路径=>https://book.douban.com/tag/%E5%8E%86%E5%8F%B2?start=0&type=T
+	           页面比较规范 ，可以用jsoup来解析爬取书的id和名字 但是 具体到某个书的页面 如：
+	           https://book.douban.com/subject/26953606/，页面之间存在差异，用jsoup解析数据容易出错
+	
+	           路径=> http://api.douban.com/book/subject/4123377
+	           为豆瓣的开发者接口，数据格式规范，所以采用解析xml方法爬取数据，而且IP不易被封。
+	           但是2019-03-22验证时，此api借口被豆瓣封掉，具体开放时间不详。
+	           可参考https://www.douban.com/group/345245/网址了解具体情况。
+	
+	           对于封掉API借口问题，可以爬取另一个页面 https://douban.uieee.com/v2/book/4123377
+	           返回json数据，可以自己解析
+	      
+2.爬取评论时，网友名称有特殊符号问题？
+              编码讲解：ASCII  英文编码标准，用7位表示的，能表示128个字符；其扩展使用8位表示，表示256个字符
+                        GBK 用2个字节标识汉字
+                        UNICODE 统一所有字符编码 所有编码用统一二进制表示 
+                        UTF-8 unicode的实现，用1至4个字节表示
+                        mysql 8.0版本支持utf8mb4 但是低于8.0版本不支持4个字节的编码，所以特殊字符没法存储 
+                        其中网友用户名就包含特殊字符，无法存储。所以要修改mysql数据库编码。
+                        
+                    <!--修改mysql数据库编码为utf8mb4-->
+                     1.D:\mysql my.ini文件 (若是没有，自己创建，将my-large.ini内容复制粘贴进去)
+                       添加以下内容：
+                       [client]
+                       default-character-set=utf8mb4
+                                      
+                       [mysqld]
+                       character-set-client-handshake = FALSE
+                       character-set-server = utf8mb4                      
+                       collation-server = utf8mb4_unicode_ci
+                       init_connect='SET NAMES utf8mb4'
+                       
+                       [mysql]
+                       default-character-set=utf8mb4
+                     
+                      2.(ssm数据库名，comment表名，username列名)
+                        ALTER DATABASE ssm CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+                        ALTER TABLE comment CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+                        ALTER TABLE comment CHANGE username username varchar(60) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+                        
+                      3.重启数据库
+                        net mysql stop
+                        net mysql start
+                      
+              
+             
