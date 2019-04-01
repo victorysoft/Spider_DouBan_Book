@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.itkim.mapper.BooksMapper" >
+  <resultMap id="BaseResultMap" type="com.itkim.pojo.Books" >           
+    <id column="book_id" property="booksId" jdbcType="INTEGER" />
+    <result column="book_name" property="booksName" jdbcType="VARCHAR" />
+    <result column="author" property="author" jdbcType="VARCHAR" />
+    <result column="pubdate" property="pubdate" jdbcType="VARCHAR" />
+    <result column="tags" property="tags" jdbcType="VARCHAR" />  
+    <result column="origin_title" property="originTtitle" jdbcType="VARCHAR" />
+    <result column="translator" property="translator" jdbcType="VARCHAR" />
+    <result column="catalog" property="catalog" jdbcType="VARCHAR" />
+    <result column="pages" property="pages" jdbcType="INTEGER" />
+    <result column="images_small_url" property="imagesSmallUrl" jdbcType="VARCHAR" />  
+    <result column="images_large_url" property="imagesLargeUrl" jdbcType="VARCHAR" />
+    <result column="images_medium_url" property="imagesMediumUrl" jdbcType="VARCHAR" />
+    <result column="book_url" property="bookUrl" jdbcType="VARCHAR" />
+    <result column="publisher" property="publisher" jdbcType="VARCHAR" />   
+    <result column="isbn10" property="isbn10" jdbcType="VARCHAR" />  
+    <result column="isbn13" property="isbn13" jdbcType="VARCHAR" />
+    <result column="title" property="title" jdbcType="VARCHAR" />
+    <result column="author_intro" property="authorIntro" jdbcType="VARCHAR" />
+    <result column="summary" property="summary" jdbcType="VARCHAR" />
+    <result column="price" property="price" jdbcType="VARCHAR" />
+  </resultMap>
+  
+  <select id = "getAllBookId" resultType="java.lang.Integer">
+     select book_id from books
+  </select>
+  <insert id="insertBooksId" parameterType="java.lang.Integer" >
+    insert into books (book_id) values (#{id,jdbcType=INTEGER})
+  </insert>
+     
+  <update id="updateBooksById" parameterType="com.itkim.pojo.Books" >
+    update books
+    set book_name = #{booksName,jdbcType=VARCHAR},
+        author = #{author,jdbcType=VARCHAR},
+        pubdate = #{pubdate,jdbcType=VARCHAR},      
+        tags = #{tags,jdbcType=VARCHAR},
+        origin_title = #{originTtitle,jdbcType=VARCHAR},
+        translator = #{translator,jdbcType=VARCHAR}, 
+        catalog = #{catalog,jdbcType=VARCHAR},
+        pages = #{pages,jdbcType=INTEGER},
+        images_small_url = #{imagesSmallUrl,jdbcType=VARCHAR},
+        images_large_url = #{imagesLargeUrl,jdbcType=VARCHAR},
+        images_medium_url = #{imagesMediumUrl,jdbcType=VARCHAR},
+        book_url = #{bookUrl,jdbcType=VARCHAR},  
+        publisher = #{publisher,jdbcType=VARCHAR},
+        isbn10 = #{isbn10,jdbcType=VARCHAR},
+        isbn13 = #{isbn13,jdbcType=VARCHAR},
+        title = #{title,jdbcType=VARCHAR},
+        author_intro = #{authorIntro,jdbcType=VARCHAR},
+        summary = #{summary,jdbcType=VARCHAR},
+        price = #{price,jdbcType=VARCHAR}
+    where book_id = #{booksId,jdbcType=INTEGER}
+  </update>
+</mapper>

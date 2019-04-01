@@ -400,4 +400,8 @@
       img_url = #{imgUrl,jdbcType=VARCHAR}
     where id = #{id,jdbcType=INTEGER}
   </update>
+  <select id = "getAllBookId" resultType="java.lang.Integer">
+     select id from book
+  </select>
+  
 </mapper>

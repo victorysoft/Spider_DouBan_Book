@@ -3,6 +3,11 @@
         PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-config.dtd">
 <configuration>
+
+	<settings>
+        <!-- 打印查询语句 -->
+        <setting name="logImpl" value="STDOUT_LOGGING" />
+	</settings>
     <typeAliases>
         <package name="com.itkim.pojo"/>
     </typeAliases>
@@ -19,6 +24,9 @@
     </environments>
     <mappers>
         <mapper resource="mapper/BookMapper.xml"/>
+        <mapper resource="mapper/BooksMapper.xml"/>
         <mapper resource="mapper/CommentMapper.xml"/>
+        <mapper resource="mapper/CommentsMapper.xml"/>
+        <mapper resource="mapper/ProxyIpMapper.xml"/>
     </mappers>
 </configuration>
